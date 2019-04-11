@@ -2,8 +2,9 @@ module Lib
     ( stunServer
     ) where
 
+import Relude        
+import qualified Network.Socket.ByteString as BS
 import qualified Network.Socket as S
-import Network.Socket (Socket)
 
 stunServer :: IO ()
 stunServer = S.withSocketsDo $ do
@@ -11,8 +12,8 @@ stunServer = S.withSocketsDo $ do
     S.bindSocket sock (S.SockAddrInet 19900 S.iNADDR_ANY)
     serverLoop sock
 
-serverLoop :: Socket -> IO ()
+serverLoop :: S.Socket -> IO ()
 serverLoop sock = do
-    (mesg, recv_count, client) <- S.recvFrom sock 1500
-    send_count <- S.sendTo sock mesg client
+    (mesg, client) <- BS.recvFrom sock 1500
+    send_count <- BS.sendTo sock mesg client
     serverLoop sock
