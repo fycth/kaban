@@ -20,7 +20,17 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/fycth/kaban#readme>
 
 dependencies:
-- base >= 4.7 && < 5
+- base-noprelude >= 4.12 && < 4.13
+- relude >= 0.4.0 && < 0.4.1
+- network
+- binary
+- bytestring
+- bytestring-conversion
+- hex
+
+default-extensions:
+- OverloadedStrings
+- NoImplicitPrelude
 
 library:
   source-dirs: src
@@ -33,6 +43,11 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall 
+    - -Wcompat 
+    - -Wincomplete-record-updates 
+    - -Wincomplete-uni-patterns 
+    - -Wredundant-constraints
     dependencies:
     - kaban
 
