@@ -5,14 +5,12 @@ module Lib
 import           Data.Binary.Get            as G
 import           Data.Binary.Put            as P
 import qualified Data.ByteString            as BS
-import           Data.ByteString.Char8      (readInt)
-import qualified Data.ByteString.Conversion as BSC
 import qualified Data.ByteString.Lazy       as BL
-import           Data.Hex                   (hex)
+--import           Data.Hex                   (hex)
 import qualified Network.Socket             as S
 import qualified Network.Socket.ByteString  as NBS
 import           Relude
-import           Text.Printf
+import           Text.Printf (printf)
 
 data Header = Header
   { messageType :: !Word16
