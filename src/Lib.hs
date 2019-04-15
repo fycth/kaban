@@ -18,6 +18,15 @@ data Header = Header
   , magicCookie :: !Word32
   , transactionID :: !BS.ByteString }
 
+data Attribute = Attribute 
+  { attributeType :: !Word16
+  , attributeLen :: !Word16
+  , attributeVal :: !BS.ByteString }
+
+data StunResponse = StunResponse
+  { header :: Header
+  , attributes :: []Attribute }
+
 stunServer :: IO ()
 stunServer = S.withSocketsDo $ do
   addr <- resolve "19900"
@@ -32,7 +41,7 @@ serverLoop sock = do
     Done _ _ h ->
       do
         putStrLn $ printf "0x%08X" (magicCookie h)
-        let r = BS.concat . BL.toChunks $ P.runPut $ encodeHeader $ Header 0x101 0x0 0x2112A442 "0"
+        let r = BS.concat . BL.toChunks $ P.runPut $ encodeResponse $ generateMockResponse $ transactionID h
         NBS.sendTo sock r client
     _ ->
       do
@@ -61,3 +70,25 @@ encodeHeader h = do
   P.putWord16be $ messageLength h
   P.putWord32be $ magicCookie h
   P.putByteString $ transactionID h
+
+generateMockResponse :: BS.ByteString -> StunResponse
+generateMockResponse transactionId =
+  let
+    header = Header 0x101 12 0x2112A442 transactionId
+    attribute = Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
+    attributes = [attribute]
+  in
+    StunResponse header attributes 
+
+encodeResponse :: StunResponse -> P.Put
+encodeResponse response = do
+  encodeHeader $ header response
+  encodeAttribute $ attributes response
+
+encodeAttribute :: []Attribute -> P.Put 
+encodeAttribute [] = return ()
+encodeAttribute (a:as) = do
+  P.putWord16be $ attributeType a
+  P.putWord16be $ attributeLen a
+  P.putByteString $ attributeVal a
+  encodeAttribute as
