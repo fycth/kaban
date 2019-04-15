@@ -25,6 +25,7 @@ dependencies:
 - network
 - binary
 - bytestring
+- bytestring-conversion
 - hex
 
 default-extensions:

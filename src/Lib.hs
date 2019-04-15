@@ -5,12 +5,14 @@ module Lib
 import           Data.Binary.Get            as G
 import           Data.Binary.Put            as P
 import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Conversion as BSC
 import qualified Data.ByteString.Lazy       as BL
 --import           Data.Hex                   (hex)
+import qualified Data.ByteString.Builder    as BSB
 import qualified Network.Socket             as S
 import qualified Network.Socket.ByteString  as NBS
 import           Relude
-import           Text.Printf (printf)
+import           Text.Printf                (printf)
 
 data Header = Header
   { messageType :: !Word16
@@ -18,7 +20,7 @@ data Header = Header
   , magicCookie :: !Word32
   , transactionID :: !BS.ByteString }
 
-data Attribute = Attribute 
+data Attribute = Attribute
   { attributeType :: !Word16
   , attributeLen :: !Word16
   , attributeVal :: !BS.ByteString }
@@ -41,7 +43,7 @@ serverLoop sock = do
     Done _ _ h ->
       do
         putStrLn $ printf "0x%08X" (magicCookie h)
-        let r = BS.concat . BL.toChunks $ P.runPut $ encodeResponse $ generateMockResponse $ transactionID h
+        let r = BS.concat . BL.toChunks $ P.runPut $ encodeResponse $ generateAttribute client $ transactionID h
         NBS.sendTo sock r client
     _ ->
       do
@@ -78,17 +80,47 @@ generateMockResponse transactionId =
     attribute = Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
     attributes = [attribute]
   in
-    StunResponse header attributes 
+    StunResponse header attributes
 
 encodeResponse :: StunResponse -> P.Put
 encodeResponse response = do
   encodeHeader $ header response
   encodeAttribute $ attributes response
 
-encodeAttribute :: []Attribute -> P.Put 
+encodeAttribute :: []Attribute -> P.Put
 encodeAttribute [] = return ()
 encodeAttribute (a:as) = do
   P.putWord16be $ attributeType a
   P.putWord16be $ attributeLen a
   P.putByteString $ attributeVal a
   encodeAttribute as
+
+generateAttribute :: S.SockAddr -> BS.ByteString -> StunResponse
+generateAttribute client tid =
+  case client of
+    S.SockAddrInet port host ->
+      let
+        header = Header 0x101 12 0x2112A442 tid
+        p = BS.pack $ encodeWord16 (fromIntegral port :: Word16)
+        h = BS.pack $ encodeWord32 host
+        attribute = Attribute 0x0020 8 (BS.pack [0x0, 0x01] `BS.append` p `BS.append` h)
+        attributes = [attribute]
+      in
+        StunResponse header attributes
+    S.SockAddrInet6 port _ (h1,h2,h3,h4) _ ->
+      let
+        header = Header 0x101 24 0x2112A442 tid
+        p = BS.pack $ encodeWord16 (fromIntegral port :: Word16)
+        h = BS.pack $ encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4
+        attribute = Attribute 0x0001 20 (BS.pack [0x0, 0x02] `BS.append` p `BS.append` h)
+        attributes = [attribute]
+      in
+        StunResponse header attributes
+    _ ->
+      generateMockResponse tid
+
+encodeWord16 :: Word16 -> [Word8]
+encodeWord16 = BL.unpack . BSB.toLazyByteString . BSB.word16BE
+
+encodeWord32 :: Word32 -> [Word8]
+encodeWord32 = BL.unpack . BSB.toLazyByteString . BSB.word32BE
