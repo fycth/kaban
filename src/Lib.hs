@@ -20,6 +20,8 @@ data Header = Header
   , magicCookie :: !Word32
   , transactionID :: !BS.ByteString }
 
+data IpAddr = Ip4 Word32 | Ip6 Word32 Word32 Word32 Word32
+
 data Attribute = Attribute
   { attributeType :: !Word16
   , attributeLen :: !Word16
@@ -73,14 +75,14 @@ encodeHeader h = do
   P.putWord32be $ magicCookie h
   P.putByteString $ transactionID h
 
-generateMockResponse :: BS.ByteString -> StunResponse
-generateMockResponse transactionId =
-  let
-    header = Header 0x101 12 0x2112A442 transactionId
-    attribute = Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
-    attributes = [attribute]
-  in
-    StunResponse header attributes
+-- generateMockResponse :: BS.ByteString -> StunResponse
+-- generateMockResponse transactionId =
+--   let
+--     header = Header 0x101 12 0x2112A442 transactionId
+--     attribute = Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
+--     attributes = [attribute]
+--   in
+--     StunResponse header attributes
 
 encodeResponse :: StunResponse -> P.Put
 encodeResponse response = do
@@ -96,28 +98,36 @@ encodeAttribute (a:as) = do
   encodeAttribute as
 
 generateAttribute :: S.SockAddr -> BS.ByteString -> StunResponse
-generateAttribute client tid =
-  case client of
-    S.SockAddrInet port host ->
-      let
-        header = Header 0x101 12 0x2112A442 tid
-        p = BS.pack $ encodeWord16 (fromIntegral port :: Word16)
-        h = BS.pack $ encodeWord32 host
-        attribute = Attribute 0x0020 8 (BS.pack [0x0, 0x01] `BS.append` p `BS.append` h)
-        attributes = [attribute]
-      in
-        StunResponse header attributes
-    S.SockAddrInet6 port _ (h1,h2,h3,h4) _ ->
-      let
-        header = Header 0x101 24 0x2112A442 tid
-        p = BS.pack $ encodeWord16 (fromIntegral port :: Word16)
-        h = BS.pack $ encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4
-        attribute = Attribute 0x0001 20 (BS.pack [0x0, 0x02] `BS.append` p `BS.append` h)
-        attributes = [attribute]
-      in
-        StunResponse header attributes
-    _ ->
-      generateMockResponse tid
+generateAttribute client tid =  
+  let    
+    attr = case client of
+      S.SockAddrInet port host ->
+        makeMappedAddressAttribute (fromIntegral port :: Word16) (Ip4 host)
+      S.SockAddrInet6 port _ (h1,h2,h3,h4) _ ->
+        makeMappedAddressAttribute (fromIntegral port :: Word16) (Ip6 h1 h2 h3 h4)
+      _ ->
+        Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
+    l = 4 + attributeLen attr
+    header = Header 0x101 l 0x2112A442 tid    
+  in
+    StunResponse header [attr]      
+
+makeMappedAddressAttribute :: Word16 -> IpAddr -> Attribute
+makeMappedAddressAttribute port host =
+  let
+    p = BS.pack $ encodeWord16 $ fromIntegral port
+    a = case host of
+      Ip4 h ->
+        BS.pack $ encodeWord32 h  
+      Ip6 h1 h2 h3 h4 ->
+        BS.pack $ encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4
+    ipv = case host of 
+      Ip4 _ -> 0x01
+      _ -> 0x02
+    v = BS.pack [0x0, ipv] `BS.append` p `BS.append` a
+    l = fromIntegral(BS.length v) :: Word16
+  in
+    Attribute 0x0001 l v
 
 encodeWord16 :: Word16 -> [Word8]
 encodeWord16 = BL.unpack . BSB.toLazyByteString . BSB.word16BE
