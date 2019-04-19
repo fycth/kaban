@@ -45,7 +45,7 @@ serverLoop sock = do
     Done _ _ h ->
       do
         putStrLn $ printf "0x%08X" (magicCookie h)
-        let r = BS.concat . BL.toChunks $ P.runPut $ encodeResponse $ generateAttribute client $ transactionID h
+        let r = BS.concat . BL.toChunks $ P.runPut $ encodeResponse $ generateResponse client $ transactionID h
         NBS.sendTo sock r client
     _ ->
       do
@@ -97,8 +97,8 @@ encodeAttribute (a:as) = do
   P.putByteString $ attributeVal a
   encodeAttribute as
 
-generateAttribute :: S.SockAddr -> BS.ByteString -> StunResponse
-generateAttribute client tid =  
+generateResponse :: S.SockAddr -> BS.ByteString -> StunResponse
+generateResponse client tid =  
   let    
     attr = case client of
       S.SockAddrInet port host ->
