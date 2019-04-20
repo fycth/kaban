@@ -75,15 +75,6 @@ encodeHeader h = do
   P.putWord32be $ magicCookie h
   P.putByteString $ transactionID h
 
--- generateMockResponse :: BS.ByteString -> StunResponse
--- generateMockResponse transactionId =
---   let
---     header = Header 0x101 12 0x2112A442 transactionId
---     attribute = Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
---     attributes = [attribute]
---   in
---     StunResponse header attributes
-
 encodeResponse :: StunResponse -> P.Put
 encodeResponse response = do
   encodeHeader $ header response
