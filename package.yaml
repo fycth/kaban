@@ -1,7 +1,7 @@
 name:                kaban
 version:             0.1.0.0
 github:              "fycth/kaban"
-license:             BSD3
+license:             MIT
 author:              "Andrii Sergiienko"
 maintainer:          "andrey.sergienko@gmail.com"
 copyright:           "2019 Andrii Sergiienko"
