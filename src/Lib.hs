@@ -12,6 +12,7 @@ import qualified Data.ByteString.Builder    as BSB
 import qualified Network.Socket             as S
 import qualified Network.Socket.ByteString  as NBS
 import           Relude
+import qualified System.Endian              as SE
 import           Text.Printf                (printf)
 
 data Header = Header
@@ -89,19 +90,19 @@ encodeAttribute (a:as) = do
   encodeAttribute as
 
 generateResponse :: S.SockAddr -> BS.ByteString -> StunResponse
-generateResponse client tid =  
-  let    
+generateResponse client tid =
+  let
     attr = case client of
       S.SockAddrInet port host ->
         makeMappedAddressAttribute (fromIntegral port :: Word16) (Ip4 host)
       S.SockAddrInet6 port _ (h1,h2,h3,h4) _ ->
-        makeMappedAddressAttribute (fromIntegral port :: Word16) (Ip6 h1 h2 h3 h4)
+        makeXorMappedAddressAttribute (fromIntegral port :: Word16) (Ip6 h1 h2 h3 h4)
       _ ->
         Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
     l = 4 + attributeLen attr
-    header = Header 0x101 l 0x2112A442 tid    
+    header = Header 0x101 l 0x2112A442 tid
   in
-    StunResponse header [attr]      
+    StunResponse header [attr]
 
 makeMappedAddressAttribute :: Word16 -> IpAddr -> Attribute
 makeMappedAddressAttribute port host =
@@ -109,10 +110,27 @@ makeMappedAddressAttribute port host =
     p = BS.pack $ encodeWord16 $ fromIntegral port
     a = case host of
       Ip4 h ->
-        BS.pack $ encodeWord32 h  
+        BS.pack $ encodeWord32 h
       Ip6 h1 h2 h3 h4 ->
         BS.pack $ encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4
-    ipv = case host of 
+    ipv = case host of
+      Ip4 _ -> 0x01
+      _ -> 0x02
+    v = BS.pack [0x0, ipv] `BS.append` p `BS.append` a
+    l = fromIntegral(BS.length v) :: Word16
+  in
+    Attribute 0x0001 l v
+
+makeXorMappedAddressAttribute :: Word16 -> IpAddr -> Attribute
+makeXorMappedAddressAttribute port host =
+  let
+    p = BS.pack $ encodeWord16 (SE.fromLE16 (xor (fromIntegral port) 0x2112))
+    a = case host of
+      Ip4 h ->
+        BS.pack $ encodeWord32 (SE.fromLE32 (xor h 0x2112A442))
+      Ip6 h1 h2 h3 h4 ->
+        BS.pack $ encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4
+    ipv = case host of
       Ip4 _ -> 0x01
       _ -> 0x02
     v = BS.pack [0x0, ipv] `BS.append` p `BS.append` a
