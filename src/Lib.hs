@@ -124,10 +124,20 @@ makeMappedAddressAttribute port host =
 makeXorMappedAddressAttribute :: Word16 -> IpAddr -> Attribute
 makeXorMappedAddressAttribute port host =
   let
+-- X-Port is computed by taking the mapped port in host byte order,
+-- XOR'ing it with the most significant 16 bits of the magic cookie, and
+-- then the converting the result to network byte order.
     p = BS.pack $ encodeWord16 (SE.fromLE16 (xor (fromIntegral port) 0x2112))
     a = case host of
+-- If the IP address family is IPv4, X-Address is computed by taking the mapped IP
+-- address in host byte order, XOR'ing it with the magic cookie, and
+-- converting the result to network byte order.
       Ip4 h ->
         BS.pack $ encodeWord32 (SE.fromLE32 (xor h 0x2112A442))
+-- If the IP address family is IPv6, X-Address is computed by taking the mapped IP address
+-- in host byte order, XOR'ing it with the concatenation of the magic
+-- cookie and the 96-bit transaction ID, and converting the result to
+-- network byte order.
       Ip6 h1 h2 h3 h4 ->
         BS.pack $ encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4
     ipv = case host of
