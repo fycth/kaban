@@ -1,3 +1,6 @@
+-- https://tools.ietf.org/html/rfc5389
+-- this is an RFC5389 implementation of STUN server
+
 module Lib
   ( stunServer
   ) where
