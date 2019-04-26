@@ -54,7 +54,7 @@ serverLoop sock = do
     _ ->
       do
         putStrLn "nope"
-        let r = BS.concat . BL.toChunks $ P.runPut $ encodeHeader $ Header 0x111 0x0 0x2112A442 "0"
+        let r = BS.concat . BL.toChunks $ P.runPut $ encodeHeader $ Header 0x111 0x0 mCookie "0"
         NBS.sendTo sock r client
   serverLoop sock
 
@@ -103,7 +103,7 @@ generateResponse client tid =
       _ ->
         Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
     l = 4 + attributeLen attr
-    header = Header 0x101 l 0x2112A442 tid
+    header = Header 0x101 l mCookie tid
   in
     StunResponse header [attr]
 
@@ -156,3 +156,6 @@ encodeWord16 = BL.unpack . BSB.toLazyByteString . BSB.word16BE
 
 encodeWord32 :: Word32 -> [Word8]
 encodeWord32 = BL.unpack . BSB.toLazyByteString . BSB.word32BE
+
+mCookie :: Word32
+mCookie = 0x2112A442
