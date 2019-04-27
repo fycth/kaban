@@ -35,6 +35,8 @@ data StunResponse = StunResponse
   { header :: Header
   , attributes :: []Attribute }
 
+data AddressAttributeType = XMapped | Mapped 
+
 stunServer :: IO ()
 stunServer = S.withSocketsDo $ do
   addr <- resolve "19900"
@@ -95,11 +97,12 @@ encodeAttribute (a:as) = do
 generateResponse :: S.SockAddr -> BS.ByteString -> StunResponse
 generateResponse client tid =
   let
+    xorString = encodeWord32 mCookie ++ (BL.unpack $ BL.fromStrict tid)
     attr = case client of
       S.SockAddrInet port host ->
-        makeMappedAddressAttribute (fromIntegral port :: Word16) (Ip4 host)
+        createMappedAddressAttribute (fromIntegral port :: Word16) (Ip4 host) xorString Mapped
       S.SockAddrInet6 port _ (h1,h2,h3,h4) _ ->
-        makeXorMappedAddressAttribute (fromIntegral port :: Word16) (Ip6 h1 h2 h3 h4) (BL.unpack $ BL.fromStrict tid)
+        createMappedAddressAttribute (fromIntegral port :: Word16) (Ip6 h1 h2 h3 h4) xorString XMapped 
       _ ->
 -- fake response: todo error message
         Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
@@ -107,44 +110,29 @@ generateResponse client tid =
     header = Header 0x101 l mCookie tid
   in
     StunResponse header [attr]
-
-makeMappedAddressAttribute :: Word16 -> IpAddr -> Attribute
-makeMappedAddressAttribute port host =
+    
+createMappedAddressAttribute :: Word16 -> IpAddr -> [Word8] -> AddressAttributeType -> Attribute
+createMappedAddressAttribute port host xorString at =
   let
-    p = BS.pack $ encodeWord16 $ fromIntegral port
+    atype = case at of
+      XMapped -> 0x20
+      Mapped -> 0x01
+    p = encodeWord16 (fromIntegral port)
+    pe = case at of
+      XMapped -> xorWord8 p xorString []
+      Mapped -> p
     a = case host of
       Ip4 h ->
-        BS.pack $ encodeWord32 h
+        encodeWord32 h
       Ip6 h1 h2 h3 h4 ->
-        BS.pack $ encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4
-    v = BS.pack (getAddressFamily host) `BS.append` p `BS.append` a
+        encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4
+    ae = case at of
+      XMapped -> xorWord8 a xorString []
+      Mapped -> a
+    v = BS.pack (getAddressFamily host) `BS.append` BS.pack pe `BS.append` BS.pack ae
     l = fromIntegral(BS.length v) :: Word16
   in
-    Attribute 0x0001 l v
-
-makeXorMappedAddressAttribute :: Word16 -> IpAddr -> [Word8] -> Attribute
-makeXorMappedAddressAttribute port host tid =
-  let
--- X-Port is computed by taking the mapped port in host byte order,
--- XOR'ing it with the most significant 16 bits of the magic cookie, and
--- then the converting the result to network byte order.
-    p = BS.pack $ encodeWord16 (SE.fromLE16 (xor (fromIntegral port) 0x2112))
-    a = case host of
--- If the IP address family is IPv4, X-Address is computed by taking the mapped IP
--- address in host byte order, XOR'ing it with the magic cookie, and
--- converting the result to network byte order.
-      Ip4 h ->
-        BS.pack $ encodeWord32 (SE.fromLE32 (xor h mCookie))
--- If the IP address family is IPv6, X-Address is computed by taking the mapped IP address
--- in host byte order, XOR'ing it with the concatenation of the magic
--- cookie and the 96-bit transaction ID, and converting the result to
--- network byte order.
-      Ip6 h1 h2 h3 h4 ->
-        BS.pack $ xorWord8 (encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4) (encodeWord32 mCookie ++ tid) []
-    v = BS.pack (getAddressFamily host) `BS.append` p `BS.append` a
-    l = fromIntegral(BS.length v) :: Word16
-  in
-    Attribute 0x0020 l v
+    Attribute atype l v
 
 encodeWord16 :: Word16 -> [Word8]
 encodeWord16 = BL.unpack . BSB.toLazyByteString . BSB.word16BE
