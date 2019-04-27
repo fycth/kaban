@@ -101,6 +101,7 @@ generateResponse client tid =
       S.SockAddrInet6 port _ (h1,h2,h3,h4) _ ->
         makeXorMappedAddressAttribute (fromIntegral port :: Word16) (Ip6 h1 h2 h3 h4) (BL.unpack $ BL.fromStrict tid)
       _ ->
+-- fake response: todo error message
         Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
     l = 4 + attributeLen attr
     header = Header 0x101 l mCookie tid
