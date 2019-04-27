@@ -117,10 +117,7 @@ makeMappedAddressAttribute port host =
         BS.pack $ encodeWord32 h
       Ip6 h1 h2 h3 h4 ->
         BS.pack $ encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4
-    ipv = case host of
-      Ip4 _ -> 0x01
-      _ -> 0x02
-    v = BS.pack [0x0, ipv] `BS.append` p `BS.append` a
+    v = BS.pack (getAddressFamily host) `BS.append` p `BS.append` a
     l = fromIntegral(BS.length v) :: Word16
   in
     Attribute 0x0001 l v
@@ -144,10 +141,7 @@ makeXorMappedAddressAttribute port host tid =
 -- network byte order.
       Ip6 h1 h2 h3 h4 ->
         BS.pack $ xorWord8 (encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4) (encodeWord32 mCookie ++ tid) []
-    ipv = case host of
-      Ip4 _ -> 0x01
-      _ -> 0x02
-    v = BS.pack [0x0, ipv] `BS.append` p `BS.append` a
+    v = BS.pack (getAddressFamily host) `BS.append` p `BS.append` a
     l = fromIntegral(BS.length v) :: Word16
   in
     Attribute 0x0020 l v
@@ -164,3 +158,12 @@ mCookie = 0x2112A442
 xorWord8 :: [Word8] -> [Word8] -> [Word8] -> [Word8]
 xorWord8 [] _ a = a
 xorWord8 (x:xs) (y:ys) a = xorWord8 xs ys (a ++ [xor x y])
+
+getAddressFamily :: IpAddr -> [Word8]
+getAddressFamily host =
+  let
+    f = case host of
+      Ip4 _ -> 0x01
+      _ -> 0x02
+  in
+    [0x00, f]  
