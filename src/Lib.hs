@@ -99,7 +99,7 @@ generateResponse client tid =
       S.SockAddrInet port host ->
         makeMappedAddressAttribute (fromIntegral port :: Word16) (Ip4 host)
       S.SockAddrInet6 port _ (h1,h2,h3,h4) _ ->
-        makeXorMappedAddressAttribute (fromIntegral port :: Word16) (Ip6 h1 h2 h3 h4)
+        makeXorMappedAddressAttribute (fromIntegral port :: Word16) (Ip6 h1 h2 h3 h4) (BL.unpack $ BL.fromStrict tid)
       _ ->
         Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
     l = 4 + attributeLen attr
@@ -124,8 +124,8 @@ makeMappedAddressAttribute port host =
   in
     Attribute 0x0001 l v
 
-makeXorMappedAddressAttribute :: Word16 -> IpAddr -> Attribute
-makeXorMappedAddressAttribute port host =
+makeXorMappedAddressAttribute :: Word16 -> IpAddr -> [Word8] -> Attribute
+makeXorMappedAddressAttribute port host tid =
   let
 -- X-Port is computed by taking the mapped port in host byte order,
 -- XOR'ing it with the most significant 16 bits of the magic cookie, and
@@ -136,20 +136,20 @@ makeXorMappedAddressAttribute port host =
 -- address in host byte order, XOR'ing it with the magic cookie, and
 -- converting the result to network byte order.
       Ip4 h ->
-        BS.pack $ encodeWord32 (SE.fromLE32 (xor h 0x2112A442))
+        BS.pack $ encodeWord32 (SE.fromLE32 (xor h mCookie))
 -- If the IP address family is IPv6, X-Address is computed by taking the mapped IP address
 -- in host byte order, XOR'ing it with the concatenation of the magic
 -- cookie and the 96-bit transaction ID, and converting the result to
 -- network byte order.
       Ip6 h1 h2 h3 h4 ->
-        BS.pack $ encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4
+        BS.pack $ xorWord8 (encodeWord32 h1 ++ encodeWord32 h2 ++ encodeWord32 h3 ++ encodeWord32 h4) (encodeWord32 mCookie ++ tid) []
     ipv = case host of
       Ip4 _ -> 0x01
       _ -> 0x02
     v = BS.pack [0x0, ipv] `BS.append` p `BS.append` a
     l = fromIntegral(BS.length v) :: Word16
   in
-    Attribute 0x0001 l v
+    Attribute 0x0020 l v
 
 encodeWord16 :: Word16 -> [Word8]
 encodeWord16 = BL.unpack . BSB.toLazyByteString . BSB.word16BE
@@ -159,3 +159,7 @@ encodeWord32 = BL.unpack . BSB.toLazyByteString . BSB.word32BE
 
 mCookie :: Word32
 mCookie = 0x2112A442
+
+xorWord8 :: [Word8] -> [Word8] -> [Word8] -> [Word8]
+xorWord8 [] _ a = a
+xorWord8 (x:xs) (y:ys) a = xorWord8 xs ys (a ++ [xor x y])
