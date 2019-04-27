@@ -15,7 +15,6 @@ import qualified Data.ByteString.Builder    as BSB
 import qualified Network.Socket             as S
 import qualified Network.Socket.ByteString  as NBS
 import           Relude
-import qualified System.Endian              as SE
 import           Text.Printf                (printf)
 
 data Header = Header

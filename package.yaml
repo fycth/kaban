@@ -26,7 +26,6 @@ dependencies:
 - binary
 - bytestring
 - bytestring-conversion
-- cpu
 #- hex
 
 default-extensions:
