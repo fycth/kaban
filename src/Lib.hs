@@ -56,6 +56,7 @@ serverLoop sock = do
         _ ->
           -- do
           --   putStrLn "error happened"
+            -- 0x400 - BAD REQUEST
             return $ BS.concat . BL.toChunks $ P.runPut $ encodeResponse $ generateErrorResponse 0x400 "Bad request"
   sent <- NBS.sendTo sock r client      
   serverLoop sock
@@ -124,6 +125,7 @@ generateResponse client tid =
       S.SockAddrInet6 port _ (h1,h2,h3,h4) _ ->
         createMappedAddressAttribute (fromIntegral port :: Word16) (Ip6 h1 h2 h3 h4) xorString XMapped 
       _ ->
+        -- 0x500 - INTERNAL SERVER ERROR
         generateErrorAttribute 0x500 "Can't detect the client's address"
     l = 4 + attributeLen attr
     header = Header 0x101 l mCookie tid
