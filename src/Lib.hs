@@ -54,15 +54,9 @@ serverLoop sock = do
             return $ BS.concat . BL.toChunks $ P.runPut $ encodeResponse $ generateResponse client $ transactionID h
         -- error when decoding the incoming packet
         _ ->
-          do
-            let 
-              attrVal = "Bad request"
-              attrLen = fromIntegral(BS.length attrVal) :: Word16
-              attr = Attribute 0x400 attrLen attrVal 
-              l = 4 + attributeLen attr
-              h = Header 0x111 l mCookie "0"
-              r = StunResponse h [attr]
-            return $ BS.concat . BL.toChunks $ P.runPut $ encodeResponse r
+          -- do
+          --   putStrLn "error happened"
+            return $ BS.concat . BL.toChunks $ P.runPut $ encodeResponse $ generateErrorResponse 0x400 "Bad request"
   sent <- NBS.sendTo sock r client      
   serverLoop sock
 
@@ -99,6 +93,16 @@ encodeAttribute (a:as) = do
   P.putWord16be $ attributeLen a
   P.putByteString $ attributeVal a
   encodeAttribute as
+
+generateErrorResponse :: Word16 -> BS.ByteString -> StunResponse
+generateErrorResponse errorCode errorMessage =
+  let
+    attrLen = fromIntegral(BS.length errorMessage) :: Word16
+    attr = Attribute errorCode attrLen errorMessage 
+    headerLen = 4 + attrLen
+    header = Header 0x111 headerLen mCookie "0"
+  in
+    StunResponse header [attr]
 
 generateResponse :: S.SockAddr -> BS.ByteString -> StunResponse
 generateResponse client tid =
