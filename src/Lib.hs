@@ -94,12 +94,18 @@ encodeAttribute (a:as) = do
   P.putByteString $ attributeVal a
   encodeAttribute as
 
+generateErrorAttribute :: Word16 -> BS.ByteString -> Attribute
+generateErrorAttribute errorCode errorMessage =
+  let
+    attrLen = fromIntegral(BS.length errorMessage) :: Word16
+  in
+    Attribute errorCode attrLen errorMessage 
+
 generateErrorResponse :: Word16 -> BS.ByteString -> StunResponse
 generateErrorResponse errorCode errorMessage =
   let
-    attrLen = fromIntegral(BS.length errorMessage) :: Word16
-    attr = Attribute errorCode attrLen errorMessage 
-    headerLen = 4 + attrLen
+    attr = generateErrorAttribute errorCode errorMessage
+    headerLen = 4 + attributeLen attr
     header = Header 0x111 headerLen mCookie "0"
   in
     StunResponse header [attr]
@@ -114,8 +120,7 @@ generateResponse client tid =
       S.SockAddrInet6 port _ (h1,h2,h3,h4) _ ->
         createMappedAddressAttribute (fromIntegral port :: Word16) (Ip6 h1 h2 h3 h4) xorString XMapped 
       _ ->
--- fake response: todo error message
-        Attribute 0x0020 8 (BS.pack [0x0, 0x01, 0xc9, 0xa3, 0x7c, 0x5c, 0xc6, 0xd0])
+        generateErrorAttribute 0x500 "Can't detect the client's address"
     l = 4 + attributeLen attr
     header = Header 0x101 l mCookie tid
   in
