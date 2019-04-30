@@ -47,10 +47,12 @@ serverLoop :: S.Socket -> IO ()
 serverLoop sock = do
   (mesg, client) <- NBS.recvFrom sock 1500
   r <- case G.runGetIncremental parseHeader `G.pushChunk` mesg of
+        -- yhe incoming packet was successfully decoded
         Done _ _ h ->
-          do
-            putStrLn $ printf "0x%08X" (magicCookie h)
+          -- do
+          --   putStrLn $ printf "0x%08X" (magicCookie h)
             return $ BS.concat . BL.toChunks $ P.runPut $ encodeResponse $ generateResponse client $ transactionID h
+        -- error when decoding the incoming packet
         _ ->
           do
             let 
@@ -58,7 +60,9 @@ serverLoop sock = do
               attrLen = fromIntegral(BS.length attrVal) :: Word16
               attr = Attribute 0x400 attrLen attrVal 
               l = 4 + attributeLen attr
-            return $ BS.concat . BL.toChunks $ P.runPut $ encodeHeader $ Header 0x111 l mCookie "0"
+              h = Header 0x111 l mCookie "0"
+              r = StunResponse h [attr]
+            return $ BS.concat . BL.toChunks $ P.runPut $ encodeResponse r
   sent <- NBS.sendTo sock r client      
   serverLoop sock
 
