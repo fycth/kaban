@@ -97,9 +97,12 @@ encodeAttribute (a:as) = do
 generateErrorAttribute :: Word16 -> BS.ByteString -> Attribute
 generateErrorAttribute errorCode errorMessage =
   let
-    attrLen = fromIntegral(BS.length errorMessage) :: Word16
+    attrLen = 4 + fromIntegral(BS.length errorMessage) :: Word16
+    reserved = encodeWord16 (0x0 :: Word16)
+    code = BS.pack $ encodeWord16 (errorCode :: Word16)
+    val = BS.pack reserved `BS.append` code `BS.append` errorMessage
   in
-    Attribute errorCode attrLen errorMessage 
+    Attribute 0x0009 attrLen val 
 
 generateErrorResponse :: Word16 -> BS.ByteString -> StunResponse
 generateErrorResponse errorCode errorMessage =
