@@ -116,7 +116,8 @@ generateErrorResponse errorCode errorMessage =
 generateResponse :: S.SockAddr -> BS.ByteString -> StunResponse
 generateResponse client tid =
   let
-    xorString = encodeWord32 mCookie ++ (BL.unpack $ BL.fromStrict tid)
+    tidWord8 = (BL.unpack $ BL.fromStrict tid)
+    xorString = encodeWord32 mCookie ++ tidWord8
     attr = case client of
       S.SockAddrInet port host ->
         createMappedAddressAttribute (fromIntegral port :: Word16) (Ip4 host) xorString Mapped
