@@ -15,7 +15,7 @@ import qualified Data.ByteString.Builder    as BSB
 import qualified Network.Socket             as S
 import qualified Network.Socket.ByteString  as NBS
 import           Relude
-import           Text.Printf                (printf)
+-- import           Text.Printf                (printf)
 
 data Header = Header
   { messageType :: !Word16
