@@ -109,11 +109,9 @@ generateErrorResponse :: Word16 -> BS.ByteString -> StunResponse
 generateErrorResponse errorCode errorMessage =
   let
     attr = generateErrorAttribute errorCode errorMessage
-    headerLen = 4 + attributeLen attr
-    fakeTid = encodeWord32 (0x0 :: Word32) ++ encodeWord32 (0x0 :: Word32) ++ encodeWord32 (0x0 :: Word32)
-    header = Header 0x111 headerLen mCookie $ BS.pack fakeTid
+    fakeTid = BS.pack $ encodeWord32 (0x0 :: Word32) ++ encodeWord32 (0x0 :: Word32) ++ encodeWord32 (0x0 :: Word32)
   in
-    StunResponse header [attr]
+    makeStunResponse attr fakeTid
 
 generateResponse :: S.SockAddr -> BS.ByteString -> StunResponse
 generateResponse client tid =
@@ -128,15 +126,21 @@ generateResponse client tid =
       _ ->
         -- 0x500 - INTERNAL SERVER ERROR
         generateErrorAttribute 0x500 "Can't detect the client's address"
-    l = 4 + attributeLen attr
-    headerCode =
+  in
+    makeStunResponse attr tid
+
+makeStunResponse :: Attribute -> BS.ByteString -> StunResponse
+makeStunResponse attr tid =
+  let
+    attrLen = 4 + attributeLen attr
+    msgType =
       case attributeType attr of
         0x0009 -> 0x111
         _ -> 0x101
-    header = Header headerCode l mCookie tid
+    header = Header msgType attrLen mCookie tid
   in
     StunResponse header [attr]
-    
+
 createMappedAddressAttribute :: Word16 -> IpAddr -> [Word8] -> AddressAttributeType -> Attribute
 createMappedAddressAttribute port host xorString at =
   let
