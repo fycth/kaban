@@ -129,7 +129,11 @@ generateResponse client tid =
         -- 0x500 - INTERNAL SERVER ERROR
         generateErrorAttribute 0x500 "Can't detect the client's address"
     l = 4 + attributeLen attr
-    header = Header 0x101 l mCookie tid
+    headerCode =
+      case attributeType attr of
+        0x0009 -> 0x111
+        _ -> 0x101
+    header = Header headerCode l mCookie tid
   in
     StunResponse header [attr]
     
