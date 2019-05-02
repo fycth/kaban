@@ -110,7 +110,8 @@ generateErrorResponse errorCode errorMessage =
   let
     attr = generateErrorAttribute errorCode errorMessage
     headerLen = 4 + attributeLen attr
-    header = Header 0x111 headerLen mCookie "0"
+    fakeTid = encodeWord32 (0x0 :: Word32) ++ encodeWord32 (0x0 :: Word32) ++ encodeWord32 (0x0 :: Word32)
+    header = Header 0x111 headerLen mCookie $ BS.pack fakeTid
   in
     StunResponse header [attr]
 
