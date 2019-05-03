@@ -1,5 +1,6 @@
--- https://tools.ietf.org/html/rfc5389
--- this is an RFC5389 implementation of STUN server
+-- STUN RFC: https://tools.ietf.org/html/rfc5389
+-- TURN RFC: https://tools.ietf.org/html/rfc5766
+-- ICE RFC: https://tools.ietf.org/html/rfc5245
 
 module Lib
   ( stunServer
@@ -46,19 +47,27 @@ stunServer = S.withSocketsDo $ do
 serverLoop :: S.Socket -> IO ()
 serverLoop sock = do
   (mesg, client) <- NBS.recvFrom sock 1500
-  r <- case G.runGetIncremental parseHeader `G.pushChunk` mesg of
+  let clientRequest = G.runGetIncremental parseHeader `G.pushChunk` mesg
+  serverResponse <-
+    case clientRequest of
         -- yhe incoming packet was successfully decoded
-        Done _ _ h ->
-          -- do
+      Done _ _ h ->
+        do
           --   putStrLn $ printf "0x%08X" (magicCookie h)
-            return $ BS.concat . BL.toChunks $ P.runPut $ encodeResponse $ generateResponse client $ transactionID h
+        let
+          resp =
+            case messageType h of
+              0x001 -> generateResponse client $ transactionID h
+              _ -> generateErrorResponse 0x400 "Bad request"
+        return resp
         -- error when decoding the incoming packet
-        _ ->
+      _ ->
           -- do
           --   putStrLn "error happened"
             -- 0x400 - BAD REQUEST
-            return $ BS.concat . BL.toChunks $ P.runPut $ encodeResponse $ generateErrorResponse 0x400 "Bad request"
-  sent <- NBS.sendTo sock r client      
+        return $ generateErrorResponse 0x400 "Bad request"
+  let encodedResponse = BS.concat . BL.toChunks $ P.runPut $ encodeResponse serverResponse
+  _ <- NBS.sendTo sock encodedResponse client      
   serverLoop sock
 
 resolve :: String -> IO S.AddrInfo
