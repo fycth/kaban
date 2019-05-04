@@ -50,7 +50,7 @@ serverLoop sock = do
   let clientRequest = G.runGetIncremental parseHeader `G.pushChunk` mesg
   serverResponse <-
     case clientRequest of
-        -- yhe incoming packet was successfully decoded
+        -- the incoming packet was successfully decoded
       Done _ _ h ->
         do
           --   putStrLn $ printf "0x%08X" (magicCookie h)
