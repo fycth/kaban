@@ -179,6 +179,7 @@ encodeWord16 = BL.unpack . BSB.toLazyByteString . BSB.word16BE
 encodeWord32 :: Word32 -> [Word8]
 encodeWord32 = BL.unpack . BSB.toLazyByteString . BSB.word32BE
 
+-- magic cookie is a constant, according to the RFC
 mCookie :: Word32
 mCookie = 0x2112A442
 
