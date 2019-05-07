@@ -183,6 +183,7 @@ encodeWord32 = BL.unpack . BSB.toLazyByteString . BSB.word32BE
 mCookie :: Word32
 mCookie = 0x2112A442
 
+-- xor list a against list b
 xorWord8 :: [Word8] -> [Word8] -> [Word8] -> [Word8]
 xorWord8 [] _ a = a
 xorWord8 (x:xs) (y:ys) a = xorWord8 xs ys (a ++ [xor x y])
